@@ -3,13 +3,13 @@ Build Babylon.js with Gulp
 
 Build Babylon.js with [gulp](http://gulpjs.com/ "gulp") and npm ([nodejs](http://nodejs.org/ "nodejs")), easy and cross-platform
 
-(Paths in this file are relative to this file location.)
+**Paths in this file are relative to this file location, currently [Tools/Gulp](https://github.com/BabylonJS/Babylon.js/tree/master/Tools/Gulp).**
 
 # How to use it
 
 ### First install gulp :
 ```
-npm install -g gulp
+npm install -g gulp@4.0.0
 ```
 
 ### Install some dependencies :
@@ -22,52 +22,34 @@ npm install
 npm update
 ```
 
-### Update config.json if you want to add your own files:
-```
-"extras" : {
-    "files": [
-        "file1.js", "file2.js"
-    ]
-}
-```
-## From the javascript source
-### Build Babylon.js from the javascript files:
+## Build all the distributed files and tests (release build):
 
 ```
-gulp
+npm run build
 ```
-Will be generated :
-- babylon.js
-- babylon.noworker.js (minified version without collisions workers)
-- babylon.max.js (unminified)
+Will generate all the files of the dist/preview release folder.
 
-### Build Babylon.js when you save a javascript file:
-```
-gulp watch
-```
-
-## From the typescript source
-### Build Babylon.js from the typescript files:
+## Build all the distributed files without tests (release build):
 
 ```
-gulp typescript
+gulp typescript-libraries
 ```
-Will be generated :
-- babylon.js
-- babylon.d.ts
-- babylon.noworker.js (minified version without collisions workers)
-- babylon.max.js (unminified)
+Will generate all the files of the dist/preview release folder.
 
-Be aware that all js files content will be overwrite.
+## Run all the tests (release build):
 
-### Build Babylon.js when you save a typescript file:
 ```
-gulp watch-typescript
+gulp tests-all
 ```
 
-### Compile all the typscript files to their javascript respective files including declaration file
+## Run Integrated Web Server and watch for changes (dev build):
 ```
-gulp typescript-compile
+gulp run
 ```
 
-Be aware that all js files content will be overwritten.
+you can now freely test in the following URLs:
+- [Playground](http://localhost:1338/Playground/index-local.html)
+- [Materials Library](http://localhost:1338/materialsLibrary/index.html)
+- [Postprocess Library](http://localhost:1338/postProcessLibrary/index.html)
+- [Procedural Textures Library](http://localhost:1338/proceduralTexturesLibrary/index.html)
+- [Local Dev Samples](http://localhost:1338/localDev/index.html)

@@ -1,7 +1,14 @@
-﻿// Attributes
+﻿#include<__decl__defaultVertex>
+// Attributes
+
+#define CUSTOM_VERTEX_BEGIN
+
 attribute vec3 position;
 #ifdef NORMAL
 attribute vec3 normal;
+#endif
+#ifdef TANGENT
+attribute vec4 tangent;
 #endif
 #ifdef UV1
 attribute vec2 uv;
@@ -13,57 +20,48 @@ attribute vec2 uv2;
 attribute vec4 color;
 #endif
 
+#include<helperFunctions>
+
 #include<bonesDeclaration>
 
 // Uniforms
 #include<instancesDeclaration>
 
-uniform mat4 view;
-uniform mat4 viewProjection;
+#ifdef MAINUV1
+	varying vec2 vMainUV1;
+#endif
 
-#ifdef DIFFUSE
+#ifdef MAINUV2
+	varying vec2 vMainUV2;
+#endif
+
+#if defined(DIFFUSE) && DIFFUSEDIRECTUV == 0
 varying vec2 vDiffuseUV;
-uniform mat4 diffuseMatrix;
-uniform vec2 vDiffuseInfos;
 #endif
 
-#ifdef AMBIENT
+#if defined(AMBIENT) && AMBIENTDIRECTUV == 0
 varying vec2 vAmbientUV;
-uniform mat4 ambientMatrix;
-uniform vec2 vAmbientInfos;
 #endif
 
-#ifdef OPACITY
+#if defined(OPACITY) && OPACITYDIRECTUV == 0
 varying vec2 vOpacityUV;
-uniform mat4 opacityMatrix;
-uniform vec2 vOpacityInfos;
 #endif
 
-#ifdef EMISSIVE
+#if defined(EMISSIVE) && EMISSIVEDIRECTUV == 0
 varying vec2 vEmissiveUV;
-uniform vec2 vEmissiveInfos;
-uniform mat4 emissiveMatrix;
 #endif
 
-#ifdef LIGHTMAP
+#if defined(LIGHTMAP) && LIGHTMAPDIRECTUV == 0
 varying vec2 vLightmapUV;
-uniform vec2 vLightmapInfos;
-uniform mat4 lightmapMatrix;
 #endif
 
-#if defined(SPECULAR) && defined(SPECULARTERM)
+#if defined(SPECULAR) && defined(SPECULARTERM) && SPECULARDIRECTUV == 0
 varying vec2 vSpecularUV;
-uniform vec2 vSpecularInfos;
-uniform mat4 specularMatrix;
 #endif
 
-#ifdef BUMP
+#if defined(BUMP) && BUMPDIRECTUV == 0
 varying vec2 vBumpUV;
-uniform vec3 vBumpInfos;
-uniform mat4 bumpMatrix;
 #endif
-
-#include<pointCloudVertexDeclaration>
 
 // Output
 varying vec3 vPositionW;
@@ -75,40 +73,82 @@ varying vec3 vNormalW;
 varying vec4 vColor;
 #endif
 
+#include<bumpVertexDeclaration>
+
 #include<clipPlaneVertexDeclaration>
 
 #include<fogVertexDeclaration>
-#include<shadowsVertexDeclaration>[0..maxSimultaneousLights]
+#include<__decl__lightFragment>[0..maxSimultaneousLights]
+
+#include<morphTargetsVertexGlobalDeclaration>
+#include<morphTargetsVertexDeclaration>[0..maxSimultaneousMorphTargets]
 
 #ifdef REFLECTIONMAP_SKYBOX
 varying vec3 vPositionUVW;
 #endif
 
-#ifdef REFLECTIONMAP_EQUIRECTANGULAR_FIXED
+#if defined(REFLECTIONMAP_EQUIRECTANGULAR_FIXED) || defined(REFLECTIONMAP_MIRROREDEQUIRECTANGULAR_FIXED)
 varying vec3 vDirectionW;
 #endif
 
 #include<logDepthDeclaration>
+#define CUSTOM_VERTEX_DEFINITIONS
 
 void main(void) {
+	
+	#define CUSTOM_VERTEX_MAIN_BEGIN
+	
+	vec3 positionUpdated = position;
+#ifdef NORMAL	
+	vec3 normalUpdated = normal;
+#endif
+#ifdef TANGENT
+	vec4 tangentUpdated = tangent;
+#endif
+
+#include<morphTargetsVertex>[0..maxSimultaneousMorphTargets]
+
 #ifdef REFLECTIONMAP_SKYBOX
-	vPositionUVW = position;
+	#ifdef REFLECTIONMAP_SKYBOX_TRANSFORMED
+		vPositionUVW = (reflectionMatrix * vec4(position, 1.0)).xyz;
+	#else
+		vPositionUVW = position;
+	#endif
 #endif 
+
+#define CUSTOM_VERTEX_UPDATE_POSITION
+
+#define CUSTOM_VERTEX_UPDATE_NORMAL
 
 #include<instancesVertex>
 #include<bonesVertex>
 
-	gl_Position = viewProjection * finalWorld * vec4(position, 1.0);
+#ifdef MULTIVIEW
+	if (gl_ViewID_OVR == 0u) {
+		gl_Position = viewProjection * finalWorld * vec4(positionUpdated, 1.0);
+	} else {
+		gl_Position = viewProjectionR * finalWorld * vec4(positionUpdated, 1.0);
+	}
+#else
+	gl_Position = viewProjection * finalWorld * vec4(positionUpdated, 1.0);
+#endif
+	
 
-	vec4 worldPos = finalWorld * vec4(position, 1.0);
+	vec4 worldPos = finalWorld * vec4(positionUpdated, 1.0);
 	vPositionW = vec3(worldPos);
 
 #ifdef NORMAL
-	vNormalW = normalize(vec3(finalWorld * vec4(normal, 0.0)));
+	mat3 normalWorld = mat3(finalWorld);
+
+	#ifdef NONUNIFORMSCALING
+		normalWorld = transposeMat3(inverseMat3(normalWorld));
+	#endif
+
+	vNormalW = normalize(normalWorld * normalUpdated);
 #endif
 
-#ifdef REFLECTIONMAP_EQUIRECTANGULAR_FIXED
-	vDirectionW = normalize(vec3(finalWorld * vec4(position, 0.0)));
+#if defined(REFLECTIONMAP_EQUIRECTANGULAR_FIXED) || defined(REFLECTIONMAP_MIRROREDEQUIRECTANGULAR_FIXED)
+	vDirectionW = normalize(vec3(finalWorld * vec4(positionUpdated, 0.0)));
 #endif
 
 	// Texture coordinates
@@ -119,7 +159,15 @@ void main(void) {
 	vec2 uv2 = vec2(0., 0.);
 #endif
 
-#ifdef DIFFUSE
+#ifdef MAINUV1
+	vMainUV1 = uv;
+#endif
+
+#ifdef MAINUV2
+	vMainUV2 = uv2;
+#endif
+
+#if defined(DIFFUSE) && DIFFUSEDIRECTUV == 0
 	if (vDiffuseInfos.x == 0.)
 	{
 		vDiffuseUV = vec2(diffuseMatrix * vec4(uv, 1.0, 0.0));
@@ -130,7 +178,7 @@ void main(void) {
 	}
 #endif
 
-#ifdef AMBIENT
+#if defined(AMBIENT) && AMBIENTDIRECTUV == 0
 	if (vAmbientInfos.x == 0.)
 	{
 		vAmbientUV = vec2(ambientMatrix * vec4(uv, 1.0, 0.0));
@@ -141,7 +189,7 @@ void main(void) {
 	}
 #endif
 
-#ifdef OPACITY
+#if defined(OPACITY) && OPACITYDIRECTUV == 0
 	if (vOpacityInfos.x == 0.)
 	{
 		vOpacityUV = vec2(opacityMatrix * vec4(uv, 1.0, 0.0));
@@ -152,7 +200,7 @@ void main(void) {
 	}
 #endif
 
-#ifdef EMISSIVE
+#if defined(EMISSIVE) && EMISSIVEDIRECTUV == 0
 	if (vEmissiveInfos.x == 0.)
 	{
 		vEmissiveUV = vec2(emissiveMatrix * vec4(uv, 1.0, 0.0));
@@ -163,7 +211,7 @@ void main(void) {
 	}
 #endif
 
-#ifdef LIGHTMAP
+#if defined(LIGHTMAP) && LIGHTMAPDIRECTUV == 0
 	if (vLightmapInfos.x == 0.)
 	{
 		vLightmapUV = vec2(lightmapMatrix * vec4(uv, 1.0, 0.0));
@@ -174,7 +222,7 @@ void main(void) {
 	}
 #endif
 
-#if defined(SPECULAR) && defined(SPECULARTERM)
+#if defined(SPECULAR) && defined(SPECULARTERM) && SPECULARDIRECTUV == 0
 	if (vSpecularInfos.x == 0.)
 	{
 		vSpecularUV = vec2(specularMatrix * vec4(uv, 1.0, 0.0));
@@ -185,7 +233,7 @@ void main(void) {
 	}
 #endif
 
-#ifdef BUMP
+#if defined(BUMP) && BUMPDIRECTUV == 0
 	if (vBumpInfos.x == 0.)
 	{
 		vBumpUV = vec2(bumpMatrix * vec4(uv, 1.0, 0.0));
@@ -196,16 +244,19 @@ void main(void) {
 	}
 #endif
 
+#include<bumpVertex>
 #include<clipPlaneVertex>
 #include<fogVertex>
 #include<shadowsVertex>[0..maxSimultaneousLights]
 
-	// Vertex color
 #ifdef VERTEXCOLOR
+	// Vertex color
 	vColor = color;
 #endif
 
 #include<pointCloudVertex>
 #include<logDepthVertex>
+
+#define CUSTOM_VERTEX_MAIN_END
 
 }

@@ -1,6 +1,5 @@
 # Build Folders (you can keep bin if you'd like, to store dlls and pdbs)
 [Bb]in/
-[Oo]bj/
 
 # mstest test results
 TestResults
@@ -13,9 +12,25 @@ TestResults
 *.user
 *.sln.docstates
 *.map
+!dist/**/*.map
+
+# javascript files
+src/**/*.js
+!src/webpack.config.js
+src/**/*.d.ts
+!src/LibDeclarations/*.d.ts
+loaders/src/**/*.js
+materialsLibrary/src/**/*.js
+proceduralTexturesLibrary/src/**/*.js
+postProcessLibrary/src/**/*.js
+inspector/src/**/*.js
+serializers/src/**/*.js
+gui/src/**/*.js
+viewer/src/**/*.js
+tests/unit/**/*.js
+!tests/unit/karma.conf.js
 
 # Build results
-[Dd]ebug/
 [Rr]elease/
 x64/
 *_i.c
@@ -93,7 +108,6 @@ AppPackages/
 
 # Others
 [Bb]in
-[Oo]bj
 sql
 TestResults
 [Tt]est[Rr]esult*
@@ -103,6 +117,19 @@ ClientBin
 ~$*
 *.dbmdl
 Generated_Code #added for RIA/Silverlight projects
+
+# OS or Editor folders
+*.DS_Store
+._*
+Thumbs.db
+.cache
+.tmproj
+nbproject
+*.sublime-project
+*.sublime-workspace
+.directory
+build
+.history
 
 # Backup & report files from converting an old project file to a newer
 # Visual Studio version. Backup files are not needed, because we have git ;-)
@@ -121,10 +148,52 @@ UpgradeLog*.XML
 
 # Do not ignore loaders/obj
 !loaders/*
+**/node_modules
 node_modules
 
 # for JetBrains IDE
 .idea
 
 # for VSCode
-.vscode
+.vs
+.tempChromeProfileForDebug
+.temp
+*.js.map
+*.js.fx
+*.d.ts
+!dist/**/*.d.ts
+!dist/**/*.js.map
+!lib.d.ts
+!src/LibDeclarations/*.d.ts
+*.fragment.ts
+*.vertex.ts
+**/ShadersInclude/**/*.ts
+
+# Split declaration file
+!ISplit.d.ts
+
+# local dev
+localDev/src/*
+/dist/preview release/babylon.custom.js
+/dist/preview release/babylon.custom.max.js
+/localDev/src/index.js
+package-lock.json
+dist/preview release/package/
+
+# viewer dist files
+/Viewer/dist/viewer.js
+/Viewer/dist/viewer.min.js
+dist/preview release/viewer/babylon.d.ts
+dist/preview release/viewer/babylonjs.loaders.d.ts
+dist/preview release/viewer/babylon.glTF2Interface.d.ts
+Viewer/dist/viewer.max.js
+!Viewer/src/**/*.d.ts
+Viewer/tests/unit/src/**/*.js
+Viewer/tests/Lib/**/*.js
+Viewer/tests/commons/**/*.js
+.sass-cache/
+gui/dist/
+/Viewer/tests/tsc
+/Viewer/tests/tsc.cmd
+/Viewer/tests/tsserver
+/Viewer/tests/tsserver.cmd

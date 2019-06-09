@@ -11,6 +11,7 @@ var options = {
 	fog: false,
 	skybox: false,
     lightIntensity: 1.0,
+	lightIntensityMode: 0,
     lightRange: 1000,
     lightRadius: 0.0000001
 }
@@ -31,6 +32,19 @@ window.registerColorPicker = function(material, name, color, onChange, onSet) {
         type: "Color"
     });
 };
+
+window.registerBoolean = function(material, name, onChange, onSet) {
+	if (!registeredUIs[material]) {
+		registeredUIs[material] = [];
+	}
+	
+	registeredUIs[material].push({
+		name: name,
+		onChange: onChange,
+		onSet: onSet,
+		type: "Boolean"
+	});
+}
 
 
 window.registerRangeUI = function(material, name, minValue, maxValue, onChange, onSet) {
@@ -97,6 +111,12 @@ var setUi = function(ui) {
 	else if (ui.type == "Button") {
 		options[ui.name] = ui.onClick;
 		materialgui.add(options, ui.name);
+	}
+	else if (ui.type == "Boolean") {
+		options[ui.name] = ui.onSet();
+		var test = materialgui.add(options, ui.name).onChange(function(value) {
+			ui.onChange(value);
+		});
 	}
 }
 

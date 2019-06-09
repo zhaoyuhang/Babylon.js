@@ -2,10 +2,14 @@
 attribute vec3 position;
 #include<bonesDeclaration>
 
+#include<morphTargetsVertexGlobalDeclaration>
+#include<morphTargetsVertexDeclaration>[0..maxSimultaneousMorphTargets]
+
 // Uniform
 #include<instancesDeclaration>
 
 uniform mat4 viewProjection;
+uniform vec2 depthValues;
 
 #if defined(ALPHATEST) || defined(NEED_UV)
 varying vec2 vUV;
@@ -18,13 +22,20 @@ attribute vec2 uv2;
 #endif
 #endif
 
+varying float vDepthMetric;
+
 void main(void)
 {
+vec3 positionUpdated = position;
+#include<morphTargetsVertex>[0..maxSimultaneousMorphTargets]
+
 #include<instancesVertex>
 
 #include<bonesVertex>
 
-	gl_Position = viewProjection * finalWorld * vec4(position, 1.0);
+	gl_Position = viewProjection * finalWorld * vec4(positionUpdated, 1.0);
+	
+	vDepthMetric = ((gl_Position.z + depthValues.x) / (depthValues.y));
 
 #if defined(ALPHATEST) || defined(BASIC_RENDER)
 #ifdef UV1

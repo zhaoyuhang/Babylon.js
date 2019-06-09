@@ -1,199 +1,93 @@
+// Gulp Tools
 var gulp = require("gulp");
-var uglify = require("gulp-uglify");
-var typescript = require("gulp-typescript");
-var sourcemaps = require("gulp-sourcemaps");
-var srcToVariable = require("gulp-content-to-variable");
-var addModuleExports = require("./gulp-addModuleExports");
-var merge2 = require("merge2");
-var concat = require("gulp-concat");
-var rename = require("gulp-rename");
-var cleants = require('gulp-clean-ts-extends');
-var changed = require('gulp-changed');
-var runSequence = require('run-sequence');
-var replace = require("gulp-replace");
-var uncommentShader = require("./gulp-removeShaderComments");
-var expect = require('gulp-expect-file');
 
-var config = require("./config.json");
+// Import Gulp Tasks
+require("./tasks/gulpTasks-viewerLibraries");
+require("./tasks/gulpTasks-libraries");
+require("./tasks/gulpTasks-librariesES6");
+require("./tasks/gulpTasks-tsLint");
+require("./tasks/gulpTasks-importLint");
+require("./tasks/gulpTasks-netlify");
+require("./tasks/gulpTasks-whatsNew");
+require("./tasks/gulpTasks-localRun");
+require("./tasks/gulpTasks-watchLibraries");
+require("./tasks/gulpTasks-watchCore");
+require("./tasks/gulpTasks-typedoc");
+require("./tasks/gulpTasks-intellisense");
+require("./tasks/gulpTasks-tests");
+require("./tasks/gulpTasks-remapPaths");
+require("./tasks/gulpTasks-npmPackages");
+require("./tasks/gulpTasks-dependencies");
+require("./tasks/gulpTasks-testsES6");
 
-var includeShadersStream;
-var shadersStream;
-var workersStream;
+/**
+ * Temp cleanup after upgrade.
+ */
+var cp = require('child_process');
+var fs = require('fs-extra');
+var config = require("../Config/config.js");
+gulp.task("cleanup", function(cb) {
+    console.log("Cleaning up from 3.3");
+    if (fs.existsSync("../../src/Actions/babylon.action.d.ts") || fs.existsSync("../../src/gui/node_modules")) {
+        config.modules.forEach(module => {
+            cp.execSync(`git clean -fdx`, {
+                cwd: config[module].computed.srcDirectory
+            });
+        });
 
-var extendsSearchRegex = /var\s__extends[\s\S]+?\};/g;
-var decorateSearchRegex = /var\s__decorate[\s\S]+?\};/g;
+        cp.execSync(`git clean -fdx`, {
+            cwd: "../../gui/"
+        });
 
-//function to convert the shaders' filenames to variable names.
-function shadersName(filename) {
-    return filename.replace('.fragment', 'Pixel')
-        .replace('.vertex', 'Vertex')
-        .replace('.fx', 'Shader');
-}
-
-function includeShadersName(filename) {
-    return filename.replace('.fx', '');
-}
-
-gulp.task("includeShaders", function (cb) {
-    includeShadersStream = config.includeShadersDirectories.map(function (shadersDef) {
-        return gulp.src(shadersDef.files).
-            pipe(expect.real({ errorOnFailure: true }, shadersDef.files)).
-            pipe(uncommentShader()).
-            pipe(srcToVariable({
-            variableName: shadersDef.variable, asMap: true, namingCallback: includeShadersName
-        }));
-    });
-    cb();
-});
-
-gulp.task("shaders", ["includeShaders"], function (cb) {
-    shadersStream = config.shadersDirectories.map(function (shadersDef) {
-        return gulp.src(shadersDef.files).
-            pipe(expect.real({ errorOnFailure: true }, shadersDef.files)).
-            pipe(uncommentShader()).
-            pipe(srcToVariable({
-            variableName: shadersDef.variable, asMap: true, namingCallback: shadersName
-        }));
-    });
-    cb();
-});
-
-gulp.task("workers", function (cb) {
-    workersStream = config.workers.map(function (workerDef) {
-        return gulp.src(workerDef.files).
-            pipe(expect.real({ errorOnFailure: true }, workerDef.files)).
-            pipe(uglify()).
-            pipe(srcToVariable({
-                variableName: workerDef.variable
-            }));
-    });
-    cb();
-});
-
-/*
-Compiles all typescript files and creating a declaration file.
-*/
-gulp.task('typescript-compile', function () {
-    var tsResult = gulp.src(config.core.typescript).
-        pipe(typescript({
-            noExternalResolve: true,
-            target: 'ES5',
-            declarationFiles: true,
-            typescript: require('typescript'),
-            experimentalDecorators: true
-        }));
-    //If this gulp task is running on travis, file the build!
-    if (process.env.TRAVIS) {
-        var error = false;
-        tsResult.on('error', function () {
-            error = true;
-        }).on('end', function () {
-            if (error) {
-                console.log('Typescript compile failed');
-                process.exit(1);
-            }
+        cp.execSync(`git clean -fdx`, {
+            cwd: "../../tests/"
         });
     }
-    return merge2([
-        tsResult.dts
-            .pipe(concat(config.build.declarationFilename))
-            .pipe(gulp.dest(config.build.outputDirectory)),
-        tsResult.js
-            .pipe(gulp.dest(config.build.srcOutputDirectory))
-    ])
-});
 
-gulp.task('typescript-sourcemaps', function () {
-    var tsResult = gulp.src(config.core.typescript)
-        .pipe(sourcemaps.init()) // sourcemaps init. currently redundant directory def, waiting for this - https://github.com/floridoo/gulp-sourcemaps/issues/111
-        .pipe(typescript({
-            noExternalResolve: true,
-            target: 'ES5',
-            declarationFiles: true,
-            typescript: require('typescript'),
-            experimentalDecorators: true
-        }));
-    return tsResult.js
-        .pipe(sourcemaps.write("./")) // sourcemaps are written.
-        .pipe(gulp.dest(config.build.srcOutputDirectory));
-});
-
-gulp.task("buildCore", ["shaders"], function () {
-    return merge2(
-        gulp.src(config.core.files).        
-            pipe(expect.real({ errorOnFailure: true }, config.core.files)),
-        shadersStream,
-        includeShadersStream
-        )
-        .pipe(concat(config.build.minCoreFilename))
-        .pipe(cleants())
-        .pipe(replace(extendsSearchRegex, ""))
-        .pipe(replace(decorateSearchRegex, ""))
-        .pipe(addModuleExports("BABYLON"))
-        .pipe(uglify())
-        .pipe(gulp.dest(config.build.outputDirectory));
-});
-
-gulp.task("buildNoWorker", ["shaders"], function () {
-    return merge2(
-        gulp.src(config.core.files).        
-            pipe(expect.real({ errorOnFailure: true }, config.core.files)),
-        gulp.src(config.extras.files).        
-            pipe(expect.real({ errorOnFailure: true }, config.extras.files)),
-        shadersStream,
-        includeShadersStream
-        )
-        .pipe(concat(config.build.minNoWorkerFilename))
-        .pipe(cleants())
-        .pipe(replace(extendsSearchRegex, ""))
-        .pipe(replace(decorateSearchRegex, ""))
-        .pipe(addModuleExports("BABYLON"))
-        .pipe(uglify())
-        .pipe(gulp.dest(config.build.outputDirectory));
-});
-
-gulp.task("build", ["workers", "shaders"], function () {
-    return merge2(
-        gulp.src(config.core.files).        
-            pipe(expect.real({ errorOnFailure: true }, config.core.files)),
-        gulp.src(config.extras.files).        
-            pipe(expect.real({ errorOnFailure: true }, config.extras.files)),   
-        shadersStream,
-        includeShadersStream,
-        workersStream
-        )
-        .pipe(concat(config.build.filename))
-        .pipe(cleants())
-        .pipe(replace(extendsSearchRegex, ""))
-        .pipe(replace(decorateSearchRegex, ""))
-        .pipe(addModuleExports("BABYLON"))
-        .pipe(gulp.dest(config.build.outputDirectory))
-        .pipe(rename(config.build.minFilename))
-        .pipe(uglify())
-        .pipe(gulp.dest(config.build.outputDirectory));
-});
-
-gulp.task("typescript", function (cb) {
-    runSequence("typescript-compile", "default", cb);
+    cb();
 });
 
 /**
- * The default task, call the tasks: build
+ * Full TsLint.
  */
-gulp.task('default', function (cb) {
-    runSequence("buildNoWorker", "build", "buildCore", cb);
-});
+gulp.task("tsLint", gulp.series("typescript-libraries-tsLint"));
 
 /**
- * Watch task, will call the default task if a js file is updated.
+ * Full ImportLint.
  */
-gulp.task('watch', function () {
-    gulp.watch(config.core.typescript, ['build']);
-});
+gulp.task("importLint", gulp.series("typescript-libraries-importLint"));
 
 /**
- * Watch typescript task, will call the default typescript task if a typescript file is updated.
+ * Full Lint.
  */
-gulp.task('watch-typescript', function () {
-    gulp.watch(config.core.typescript, ["typescript-compile", "build"]);
-});
+gulp.task("fullLint", gulp.series("tsLint", "importLint", "circularDependencies"));
+
+/**
+ * Validate compile the code and check the comments and style case convention through typedoc
+ */
+gulp.task("typedoc-check", gulp.series("core", "gui", "loaders", "serializers", "typedoc-generate", "typedoc-validate"));
+
+/**
+ * Combine Webserver and Watch as long as vscode does not handle multi tasks.
+ */
+gulp.task("run", gulp.series("cleanup", "watchCore", "watchLibraries", "webserver"));
+
+/**
+ * Do it all (Build).
+ */
+gulp.task("typescript-all", gulp.series("typescript-libraries", "typescript-es6", "netlify-cleanup"));
+
+/**
+ * Do it all (tests).
+ */
+gulp.task("tests-all", gulp.series("tests-unit", "tests-modules", "deployAndTests-es6Modules", "tests-validation-virtualscreen", "tests-validation-browserstack"));
+
+/**
+ * Get Ready to test Npm Packages.
+ */
+gulp.task("npmPackages", gulp.series("npmPackages-all"));
+
+/**
+ * The default task, concat and min the main BJS files.
+ */
+gulp.task("default", gulp.series("cleanup", "tsLint", "importLint", "circularDependencies", "typescript-all", "intellisense", "documentation", "typedoc-all", "tests-all"));
